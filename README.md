@@ -143,5 +143,9 @@ build on — and the `skills/` folder here is the instruction library for your A
    (never a colab.research.google.com or drive.google.com link).
 
 ---
+## AI Usage Disclosure
+This project follows an AI-assisted workflow as directed by the course/internship guidelines. 
+* **Tool used:** Gemini(mostly), Claude, Chat GPT
+* **Nature of assistance:** Used as a collaborative agent for debugging development environment errors (JSON template corruption), interpreting database schema filters, and clarifying conceptual definitions regarding target leakage and data contracts.
 
 *Track leads: Mirza Ašćerić (ML) · Hole (data engineering). Code under MIT (see `LICENSE`); data under `DATA_USE.md`.*
