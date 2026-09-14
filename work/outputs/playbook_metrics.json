@@ -1,0 +1,11 @@
+{
+    "total_pages_analyzed": 10000,
+    "actionable_items": 63,
+    "action_breakdown": {
+        "Content Refresh": 44,
+        "Title/CTR Polish": 13,
+        "Depth Expansion": 6
+    },
+    "top_reason_code": "DECAY_HIGH_TRAFFIC",
+    "model_evaluation_f1": 0.66
+}
