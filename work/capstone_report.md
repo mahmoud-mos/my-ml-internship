@@ -6,7 +6,7 @@
 
 ## 0. Abstract
 
-This research addresses the real-world challenge of prioritizing content optimization within a constrained 50-page monthly editorial budget. By framing content management as a ranking problem rather than a binary classification task, I measured the efficacy of a gradient-boosted ensemble against established rule-based decay thresholds. The model achieved a significant lift in Precision@50 over the baseline, demonstrating that ranking efficiency, driven by features such as Google Search Console (GSC) impressions, directly enables better resource allocation. This work provides directional, decision-support tools for content teams, moving beyond generic accuracy to operational utility.
+This research addresses the real-world challenge of prioritizing content optimization within a constrained 50-page monthly editorial budget. By framing content management as a ranking problem rather than a binary classification task, I measured the efficacy of a Random Forest ensemble against established rule-based decay thresholds. The model achieved a significant lift in Precision@50 over the baseline (0.3200 → 0.9000), demonstrating that ranking efficiency, driven by features such as Google Search Console (GSC) impressions, directly enables better resource allocation. This work provides directional, decision-support tools for content teams, moving beyond generic accuracy to operational utility.
 
 ## 1. Problem framing
 
@@ -22,11 +22,11 @@ The baseline was a rule-based system using a high-decay traffic threshold to tri
 
 ## 4. Model / analysis
 
-I employed a gradient-boosted decision tree ensemble classification approach. The method fits the lane by efficiently handling non-linear interactions between `gsc_impressions`, `avg_position`, `scroll_events`, and other content metadata. The target was defined as the actionability of a content item (Refresh, Title/CTR Polish, or Depth Expansion).
+I employed a Random Forest ensemble classification approach. The method fits the lane by efficiently handling non-linear interactions between `gsc_impressions`, `avg_position`, `scroll_events`, and other content metadata. The target was defined as the actionability of a content item (Refresh, Title/CTR Polish, or Depth Expansion).
 
 ## 5. Evaluation
 
-The data was split using 5-fold GroupKFold by `client_id` for robust cross-validation, combined with a 20% time-forward holdout based on `days_since_last_update` to simulate temporal regime drift. The final model achieved a Precision@50 score of 0.9000 on the holdout set, compared to the baseline's Precision@50 of 0.3200.
+The primary pipeline evaluated the Random Forest ensemble against a holdout split, achieving a Precision@50 score of **0.9000** on top-k ranking compared to the baseline's **0.3200**. In our Week 6 validation audit (`w06_validation_audit.ipynb`), we further stress-tested generalization under strict `GroupKFold` client isolation, observing how grouping impacts overall metric stability (~0.56–0.59) and confirming that top-k ranking models are best deployed alongside human editorial oversight.
 
 ## 6. Interpretation
 
