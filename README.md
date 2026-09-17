@@ -14,6 +14,22 @@ no private client data, no setup headaches.
 > minutes, with every silent pitfall flagged), then **[GUIDE.md](GUIDE.md)** (every file
 > explained, what to edit vs. leave alone, and where your own work goes — five minutes).
 
+<!-- NEW SECTION START -->
+---
+
+## My Capstone
+
+Full research paper (live): **[mahmoud-mos.github.io/my-ml-internship](https://mahmoud-mos.github.io/my-ml-internship/)**
+
+I framed content refresh prioritization as a ranking problem under a strict 50-page monthly
+editorial budget. A Random Forest classifier — selected via cross-validated Precision@50 against
+Logistic Regression and Decision Tree — was validated with 5-fold `GroupKFold` (grouped by
+`client_id`) plus a 20% time-forward holdout (`days_since_last_update`) the model never saw during
+training or selection. Precision@50 improved from **0.3200** (rule-based baseline) to **0.9000**
+(Random Forest) on that holdout. Numbers are reproducible from `outputs/model_results.json` and
+`work/notebooks/capstone.ipynb`.
+
+<!-- NEW SECTION END -->
 ---
 
 ## Quickstart — first win in 2 minutes
@@ -146,6 +162,6 @@ build on — and the `skills/` folder here is the instruction library for your A
 ## AI Usage Disclosure
 This project follows an AI-assisted workflow as directed by the course/internship guidelines. 
 * **Tool used:** Gemini(mostly), Claude, Chat GPT
-* **Nature of assistance:** Used as a collaborative agent for debugging development environment errors (JSON template corruption), interpreting database schema filters, and clarifying conceptual definitions regarding target leakage and data contracts.
+* **Nature of assistance:** Used as a collaborative agent for debugging development environment errors (JSON template corruption), interpreting database schema filters, and clarifying conceptual definitions regarding target leakage and data contracts. Also used to audit draft capstone claims against the underlying code and results before publishing.
 
 *Track leads: Mirza Ašćerić (ML) · Hole (data engineering). Code under MIT (see `LICENSE`); data under `DATA_USE.md`.*
