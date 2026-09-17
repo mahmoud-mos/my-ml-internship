@@ -108,7 +108,8 @@ def metric_table(model_results: dict) -> str:
         "| Model | ROC AUC | Avg precision | Precision@50 | Recall | F1 |",
         "|---|---:|---:|---:|---:|---:|",
     ]
-    for model_name, metrics in model_results["models"].items():
+    # Structure is directly model_name: {metric: value}
+    for model_name, metrics in model_results["models_cv"].items():
         lines.append(
             "| "
             + " | ".join(
@@ -123,7 +124,7 @@ def metric_table(model_results: dict) -> str:
             )
             + " |"
         )
-    baseline = model_results["baseline"]
+    baseline = model_results["baseline_holdout"]
     lines.append(
         "| baseline_rules | "
         + " | ".join(
@@ -234,7 +235,7 @@ The model ranks existing content for refresh review. It does not use titles, URL
 - Rows scored: {len(final_frame):,}
 - Declining-label rows: {int(final_frame["is_declining_label"].sum()):,}
 - Declining-label rate: {final_frame["is_declining_label"].mean():.3f}
-- Split strategy used for validation: {model_results["split_strategy"]}
+- Split strategy used for validation: Cross-validation + Holdout
 - Target: `{model_results["target"]}`
 
 ## Model Comparison
@@ -287,6 +288,9 @@ def main() -> None:
     baseline_frame = pd.read_csv(args.baseline)
     prediction_frame = pd.read_csv(args.predictions)
     model_results = read_json(Path(args.model_results))
+    
+    # Map probability based on the best model name (assuming only one model present now)
+    prediction_frame["best_model_probability"] = prediction_frame["prob_random_forest"]
 
     final_frame = baseline_frame.merge(
         prediction_frame[
@@ -294,9 +298,6 @@ def main() -> None:
                 "content_id",
                 "best_model_name",
                 "best_model_probability",
-                "prob_logistic_regression",
-                "prob_decision_tree",
-                "prob_random_forest",
             ]
         ],
         on="content_id",
@@ -385,7 +386,7 @@ def main() -> None:
     summary_payload = {
         "rows_scored": int(len(output_frame)),
         "best_model": model_results["best_model"]["name"],
-        "target_positive_rate": float(model_results["target_positive_rate"]),
+        "target_positive_rate": float(output_frame["is_declining_label"].mean()),
         "final_score_p80": high_threshold,
         "final_score_p50": medium_threshold,
         "top_queue_score": float(output_frame["final_refresh_score"].max()),

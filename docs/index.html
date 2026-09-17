@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capstone Report — Content Opportunity Scoring</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+</head>
+<body>
+    <header>
+        <h1>Capstone Report — Content Opportunity Scoring</h1>
+        <p><strong>Author:</strong> Mahmoud Mostafa | <strong>Lane:</strong> Refresh / Content Opportunity Scoring | <strong>Date:</strong> September 2026</p>
+    </header>
+
+    <main>
+        <h2>0. Abstract</h2>
+        <p>This research addresses the real-world challenge of prioritizing content optimization within a constrained 50-page monthly editorial budget. By framing content management as a ranking problem rather than a binary classification task, I measured the efficacy of a gradient-boosted ensemble against established rule-based decay thresholds. The model achieved a significant lift in Precision@50 over the baseline, demonstrating that ranking efficiency, driven by features such as Google Search Console (GSC) impressions, directly enables better resource allocation. This work provides directional, decision-support tools for content teams, moving beyond generic accuracy to operational utility.</p>
+
+        <h2>1. Problem framing</h2>
+        <p>The system supports critical decision-making for content lifecycle management under strict editorial constraints (e.g., a 50-page monthly budget). The unit of analysis is the <code>content_hash_id</code>. The objective is to produce a prioritized ranking of content, guiding human intervention to maintain relevance and traffic. The cost of a "wrong call" is the misallocation of limited editorial time on pages that require no intervention, or failing to capture growth opportunities on high-potential pages. By optimizing for Precision@50, we ensure that editorial resources are directed toward the content most likely to drive traffic impact, a task where machine learning outperforms fixed-rule heuristics by capturing non-linear relationships between traffic signals and decay.</p>
+
+        <h2>2. Data safety</h2>
+        <p>I utilized the anonymized refresh dataset. I deliberately excluded client-identifying fields to ensure privacy. Leakage risks, particularly label-derived fields that explicitly encode the outcome, were mitigated by ensuring only features available at the prediction moment were used. I confirm that no client-identifying details appear anywhere in the <code>work/</code> directory.</p>
+
+        <h2>3. Baseline</h2>
+        <p>The baseline was a rule-based system using a high-decay traffic threshold to trigger alerts, which achieved a Precision@50 score of <strong>0.3200</strong>. This provided a fair comparison because it operated on the same data and was measured using the same ranking metric as the machine learning model.</p>
+
+        <h2>4. Model / analysis</h2>
+        <p>I employed a gradient-boosted decision tree ensemble classification approach. The method fits the lane by efficiently handling non-linear interactions between <code>gsc_impressions</code>, <code>avg_position</code>, <code>scroll_events</code>, and other content metadata. The target was defined as the actionability of a content item (Refresh, Title/CTR Polish, or Depth Expansion).</p>
+        <img src="../outputs/charts/top_feature_importance.svg" style="max-width: 100%;" alt="Top Feature Importance">
+
+        <h2>5. Evaluation</h2>
+        <p>The data was split using 5-fold GroupKFold by <code>client_id</code> for robust cross-validation, combined with a 20% time-forward holdout based on <code>days_since_last_update</code> to simulate temporal regime drift. The final model achieved a Precision@50 score of <strong>0.9000</strong> on the holdout set, compared to the baseline's Precision@50 of 0.3200.</p>
+        <img src="../outputs/charts/trend_distribution.svg" style="max-width: 100%;" alt="Trend Distribution Evaluation">
+
+        <h2>6. Interpretation</h2>
+        <p>The model analysis identified <code>gsc_impressions</code> as the primary feature driving importance (>90%). The <code>DECAY_HIGH_TRAFFIC</code> reason code was identified as the most critical for triggering content intervention. This result confirms the importance of monitoring traffic patterns rather than relying on static metrics.</p>
+
+        <h2>7. Recommendation</h2>
+        <p>The output supports a prioritized 3-tier action playbook:</p>
+        <ul>
+            <li><strong>Content Refresh (High Urgency):</strong> For high-traffic pages with measurable decay.</li>
+            <li><strong>Title/CTR Polish:</strong> For pages with solid traffic but underperforming click-through rates.</li>
+            <li><strong>Depth Expansion:</strong> For evergreen pages that could benefit from broader topic coverage.</li>
+        </ul>
+        <img src="../work/figures/playbook_action_distribution.png" style="max-width: 100%;" alt="Playbook Action Distribution">
+        <p>Editors should use these tiers to allocate resources. The model provides directional decision-support, and I propose a Human-in-the-Loop (HITL) policy explicitly prohibiting automated publishing based on these scores.</p>
+        <img src="../outputs/charts/action_mix.svg" style="max-width: 100%;" alt="Action Mix Recommendation">
+
+        <h2>8. Reproducibility</h2>
+        <p>The project is structured for reproducibility. All steps can be re-run in order using the notebooks in <code>work/notebooks/</code>. A fixed random seed of <code>42</code> was used for all training and splitting processes.</p>
+
+        <h2>9. Acknowledgments & data credit</h2>
+        <p>Built on the <a href="https://flyrank.ai">FlyRank ML Internship dataset</a>.</p>
+    </main>
+</body>
+</html>

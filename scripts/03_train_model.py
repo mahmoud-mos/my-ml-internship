@@ -15,7 +15,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
@@ -73,38 +73,27 @@ def build_feature_matrix(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     return feature_frame, list(feature_frame.columns)
 
 
-def make_client_aware_split(
-    frame: pd.DataFrame,
-    target_series: pd.Series,
-) -> tuple[np.ndarray, np.ndarray, str]:
-    all_indices = np.arange(len(frame))
-    client_series = frame["client_id"].fillna("unknown").astype(str)
-    unique_clients = client_series.drop_duplicates().to_numpy()
+def perform_splits(frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, list[tuple[np.ndarray, np.ndarray]]]:
+    # Time-forward holdout (last 20% by days_since_last_update)
+    sorted_indices = frame.sort_values("days_since_last_update").index.to_numpy()
+    holdout_size = int(len(frame) * 0.2)
+    holdout_indices = sorted_indices[-holdout_size:]
+    train_val_indices = sorted_indices[:-holdout_size]
 
-    if len(unique_clients) >= 5:
-        random_generator = np.random.default_rng(RANDOM_STATE)
-        shuffled_clients = random_generator.permutation(unique_clients)
-        test_client_count = max(1, int(round(len(shuffled_clients) * 0.2)))
-        test_clients = set(shuffled_clients[:test_client_count])
-        test_mask = client_series.isin(test_clients).to_numpy()
-        train_indices = all_indices[~test_mask]
-        test_indices = all_indices[test_mask]
+    # 5-fold GroupKFold on the remainder
+    gkf = GroupKFold(n_splits=5)
+    folds = list(gkf.split(
+        frame.iloc[train_val_indices], 
+        frame.iloc[train_val_indices]["is_declining_label"], 
+        groups=frame.iloc[train_val_indices]["client_id"]
+    ))
+    
+    # Map folds back to original indices
+    cv_folds = []
+    for train_idx, val_idx in folds:
+        cv_folds.append((train_val_indices[train_idx], train_val_indices[val_idx]))
 
-        if (
-            len(train_indices) > 0
-            and len(test_indices) > 0
-            and target_series.iloc[train_indices].nunique() == 2
-            and target_series.iloc[test_indices].nunique() == 2
-        ):
-            return train_indices, test_indices, "client_holdout"
-
-    train_indices, test_indices = train_test_split(
-        all_indices,
-        test_size=0.2,
-        random_state=RANDOM_STATE,
-        stratify=target_series,
-    )
-    return np.array(train_indices), np.array(test_indices), "stratified_row_holdout"
+    return train_val_indices, holdout_indices, cv_folds
 
 
 def build_models() -> dict[str, object]:
@@ -216,85 +205,88 @@ def main() -> None:
 
     feature_frame, feature_columns = build_feature_matrix(frame)
     target_series = frame["is_declining_label"].astype(int)
-    train_indices, test_indices, split_strategy = make_client_aware_split(frame, target_series)
+    
+    # Use new split logic
+    train_val_indices, holdout_indices, cv_folds = perform_splits(frame)
 
-    train_features = feature_frame.iloc[train_indices]
-    test_features = feature_frame.iloc[test_indices]
-    train_target = target_series.iloc[train_indices]
-    test_target = target_series.iloc[test_indices]
+    # Cross-validation
+    cv_model_results: dict[str, list[dict[str, float]]] = {name: [] for name in build_models()}
+    
+    for train_idx, val_idx in cv_folds:
+        train_features = feature_frame.iloc[train_idx]
+        val_features = feature_frame.iloc[val_idx]
+        train_target = target_series.iloc[train_idx]
+        val_target = target_series.iloc[val_idx]
+        
+        trained_models = build_models()
+        for model_name, model in trained_models.items():
+            model.fit(train_features, train_target)
+            val_probabilities = predict_probability(model, val_features)
+            cv_model_results[model_name].append(metric_payload(val_target, val_probabilities))
 
-    baseline_lookup = baseline_frame.set_index("content_id")["baseline_refresh_score"]
-    baseline_test_scores = (
-        frame.iloc[test_indices]["content_id"].map(baseline_lookup).fillna(0).to_numpy()
-    )
-    baseline_metrics = metric_payload(
-        test_target,
-        baseline_test_scores,
-        prefix="baseline_",
-    )
+    # Average CV results
+    model_results = {}
+    for model_name, results in cv_model_results.items():
+        avg_metrics = {k: np.mean([r[k] for r in results]) for k in results[0]}
+        model_results[model_name] = avg_metrics
 
-    trained_models = build_models()
-    model_results: dict[str, dict[str, float]] = {}
-    for model_name, model in trained_models.items():
-        model.fit(train_features, train_target)
-        test_probabilities = predict_probability(model, test_features)
-        model_results[model_name] = metric_payload(test_target, test_probabilities)
-
+    # Best model selection based on Precision@50
     best_model_name = sorted(
         model_results,
-        key=lambda name: (
-            model_results[name]["precision_at_50"],
-            model_results[name]["average_precision"],
-            model_results[name]["roc_auc"],
-        ),
+        key=lambda name: model_results[name]["precision_at_50"],
         reverse=True,
     )[0]
 
+    # Final holdout evaluation
+    holdout_features = feature_frame.iloc[holdout_indices]
+    holdout_target = target_series.iloc[holdout_indices]
+    
     full_data_models = build_models()
+    best_full_model = full_data_models[best_model_name]
+    best_full_model.fit(feature_frame.iloc[train_val_indices], target_series.iloc[train_val_indices])
+    holdout_probabilities = predict_probability(best_full_model, holdout_features)
+    
+    holdout_metrics = metric_payload(holdout_target, holdout_probabilities, prefix="holdout_")
+    
+    # Baseline comparison (for holdout)
+    baseline_lookup = baseline_frame.set_index("content_id")["baseline_refresh_score"]
+    baseline_holdout_scores = (
+        frame.iloc[holdout_indices]["content_id"].map(baseline_lookup).fillna(0).to_numpy()
+    )
+    baseline_metrics = metric_payload(holdout_target, baseline_holdout_scores, prefix="baseline_")
+
+    print(f"Cross-Validation Best Model (Precision@50): {best_model_name}")
+    print(f"Holdout Precision@50: {holdout_metrics['holdout_precision_at_50']:.4f}")
+    print(f"Baseline Precision@50: {baseline_metrics['baseline_precision_at_50']:.4f}")
+
+    # Predictions for full data
     prediction_frame = frame[["content_id", "client_id", "is_declining_label"]].copy()
-    split_label = pd.Series("train", index=frame.index)
-    split_label.iloc[test_indices] = "test"
-    prediction_frame["split"] = split_label
-
-    for model_name, model in full_data_models.items():
-        model.fit(feature_frame, target_series)
-        prediction_frame[f"prob_{model_name}"] = predict_probability(model, feature_frame)
-
+    
+    # Re-train on full data
+    best_model_final = build_models()[best_model_name]
+    best_model_final.fit(feature_frame, target_series)
+    prediction_frame[f"prob_{best_model_name}"] = predict_probability(best_model_final, feature_frame)
     prediction_frame["best_model_name"] = best_model_name
-    prediction_frame["best_model_probability"] = prediction_frame[f"prob_{best_model_name}"]
-
+    
     prediction_path = Path(args.predictions)
     prediction_path.parent.mkdir(parents=True, exist_ok=True)
     prediction_frame.to_csv(prediction_path, index=False)
 
-    best_full_model = full_data_models[best_model_name]
     results_payload = {
         "input_rows": int(len(frame)),
-        "train_rows": int(len(train_indices)),
-        "test_rows": int(len(test_indices)),
-        "split_strategy": split_strategy,
+        "train_val_rows": int(len(train_val_indices)),
+        "holdout_rows": int(len(holdout_indices)),
         "target": "is_declining_label",
-        "target_positive_rows": int(target_series.sum()),
-        "target_positive_rate": float(target_series.mean()),
-        "feature_count": int(len(feature_columns)),
-        "model_numeric_features": MODEL_NUMERIC_FEATURES,
-        "model_categorical_features": MODEL_CATEGORICAL_FEATURES,
-        "models": model_results,
-        "baseline": baseline_metrics,
+        "models_cv": model_results,
+        "holdout": holdout_metrics,
+        "baseline_holdout": baseline_metrics,
         "best_model": {
             "name": best_model_name,
             "selection_metric": "precision_at_50",
             "feature_importance_top": top_feature_importance(best_full_model, feature_columns),
         },
-        "prediction_output": display_path(prediction_path),
     }
     write_json(Path(args.results), results_payload)
-
-    print(f"Trained {len(model_results)} models on {len(frame):,} rows")
-    print(f"Split strategy: {split_strategy}")
-    print(f"Best model: {best_model_name}")
-    print(f"Wrote predictions: {prediction_path}")
-    print(f"Wrote model results: {args.results}")
 
 
 if __name__ == "__main__":

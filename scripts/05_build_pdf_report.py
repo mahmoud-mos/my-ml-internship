@@ -336,7 +336,7 @@ def styled_table(
 
 def model_metric_rows(results: dict) -> list[list[str]]:
     rows = [["Model", "ROC AUC", "Avg precision", "Precision@50", "Recall", "F1"]]
-    for name, metrics in results["models"].items():
+    for name, metrics in results["models_cv"].items():
         rows.append(
             [
                 name,
@@ -347,7 +347,7 @@ def model_metric_rows(results: dict) -> list[list[str]]:
                 pct_metric(metrics["f1"]),
             ]
         )
-    baseline = results["baseline"]
+    baseline = results["baseline_holdout"]
     rows.append(
         [
             "baseline_rules",
@@ -408,8 +408,8 @@ def build_pdf() -> None:
     action_counter = Counter(row["suggested_action"] for row in queue_rows)
     confidence_counter = Counter(row["confidence"] for row in queue_rows)
     reason_counter = reason_counts(queue_rows)
-    best_model = summary["best_model"]
-    best_metrics = results["models"][best_model]
+    best_model_name = summary["best_model"]
+    best_metrics = results["holdout"]
 
     document = SimpleDocTemplate(
         str(PDF_PATH),
@@ -428,9 +428,9 @@ def build_pdf() -> None:
         card_grid(
             [
                 (format_int(summary["rows_scored"]), "Rows scored", "Anonymized BigQuery export"),
-                (best_model.replace("_", " "), "Best model", "Selected by Precision@50"),
-                (pct_metric(best_metrics["roc_auc"]), "ROC AUC", "Ranking separation quality"),
-                (pct_metric(best_metrics["precision_at_50"]), "Precision@50", "Top-50 decline hit rate"),
+                (best_model_name.replace("_", " "), "Best model", "Selected by Precision@50"),
+                (pct_metric(best_metrics["holdout_roc_auc"]), "ROC AUC", "Ranking separation quality"),
+                (pct_metric(best_metrics["holdout_precision_at_50"]), "Precision@50", "Top-50 decline hit rate"),
                 (format_int(summary["high_confidence_rows"]), "High confidence", "Rows ready for manual review"),
                 (pct_metric(summary["target_positive_rate"]), "Declining-label rate", "Supervised target balance"),
                 (format_score(summary["top_queue_score"]), "Top queue score", "0–100 final priority score"),
@@ -480,9 +480,9 @@ def build_pdf() -> None:
             "Precision@50 comparison",
             [
                 (name, metrics["precision_at_50"])
-                for name, metrics in results["models"].items()
+                for name, metrics in results["models_cv"].items()
             ]
-            + [("baseline_rules", results["baseline"]["baseline_precision_at_50"])],
+            + [("baseline_rules", results["baseline_holdout"]["baseline_precision_at_50"])],
             value_formatter=lambda value: f"{value:.3f}",
             color_palette=[BRAND_BLUE, BRAND_TEAL, BRAND_PURPLE, BRAND_ORANGE],
         ),
