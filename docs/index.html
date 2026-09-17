@@ -27,11 +27,11 @@
 
         <h2>4. Model / analysis</h2>
         <p>I employed a Random Forest ensemble classification approach. The method fits the lane by efficiently handling non-linear interactions between <code>gsc_impressions</code>, <code>avg_position</code>, <code>scroll_events</code>, and other content metadata. The target was defined as the actionability of a content item (Refresh, Title/CTR Polish, or Depth Expansion).</p>
-        <img src="../outputs/charts/top_feature_importance.svg" style="max-width: 100%;" alt="Top Feature Importance">
+        <img src="charts/top_feature_importance.svg" style="max-width: 100%;" alt="Top Feature Importance">
 
         <h2>5. Evaluation</h2>
         <p>The primary pipeline evaluated the Random Forest ensemble against a holdout split, achieving a Precision@50 score of <strong>0.9000</strong> on top-k ranking compared to the baseline's <strong>0.3200</strong>. In our Week 6 validation audit (<code>w06_validation_audit.ipynb</code>), we further stress-tested generalization under strict <code>GroupKFold</code> client isolation, observing how grouping impacts overall metric stability (~0.56&ndash;0.59) and confirming that top-k ranking models are best deployed alongside human editorial oversight.</p>
-        <img src="../outputs/charts/trend_distribution.svg" style="max-width: 100%;" alt="Trend Distribution Evaluation">
+        <img src="charts/trend_distribution.svg" style="max-width: 100%;" alt="Trend Distribution Evaluation">
 
         <h2>6. Interpretation</h2>
         <p>The model analysis identified <code>gsc_impressions</code> as the primary feature driving importance (>90%). The <code>DECAY_HIGH_TRAFFIC</code> reason code was identified as the most critical for triggering content intervention. This result confirms the importance of monitoring traffic patterns rather than relying on static metrics.</p>
@@ -43,9 +43,9 @@
             <li><strong>Title/CTR Polish:</strong> For pages with solid traffic but underperforming click-through rates.</li>
             <li><strong>Depth Expansion:</strong> For evergreen pages that could benefit from broader topic coverage.</li>
         </ul>
-        <img src="../work/figures/playbook_action_distribution.png" style="max-width: 100%;" alt="Playbook Action Distribution">
+        <img src="charts/playbook_action_distribution.png" style="max-width: 100%;" alt="Playbook Action Distribution">
         <p>Editors should use these tiers to allocate resources. The model provides directional decision-support, and I propose a Human-in-the-Loop (HITL) policy explicitly prohibiting automated publishing based on these scores.</p>
-        <img src="../outputs/charts/action_mix.svg" style="max-width: 100%;" alt="Action Mix Recommendation">
+        <img src="charts/action_mix.svg" style="max-width: 100%;" alt="Action Mix Recommendation">
 
         <h2>8. Reproducibility</h2>
         <p>The project is structured for reproducibility. All steps can be re-run in order using the notebooks in <code>work/notebooks/</code>. A fixed random seed of <code>42</code> was used for all training and splitting processes.</p>
